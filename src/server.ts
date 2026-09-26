@@ -1,8 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-
-import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { ChatOllama } from '@langchain/ollama';
+import { error } from 'node:console';
 
 // ======Creating express app=========
 const app = express();
@@ -12,8 +13,8 @@ app.use(cors());
 app.use(express.json());
 
 // ========Defining OPENAI Model=======
-const model = new ChatOpenAI({
-  model: 'gpt-5-mini',
+const model = new ChatOllama({
+  model: 'llama3.2',
   temperature: 0.7,
 });
 
@@ -25,10 +26,28 @@ app.get('/', (req, res) => {
 });
 
 // ==========
-app.post('/chat', (req, res) => {
-  res.json({
-    message: 'test',
-  });
+app.post('/chat', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message)
+      return res.status(400).json({
+        error: 'message is a required field',
+      });
+    const response = await model.invoke([
+      new HumanMessage(message),
+      new SystemMessage(
+        'You are a helpful AI assistant. Keep your answers clear and concise',
+      ),
+    ]);
+    res.json({
+      reply: response.content,
+    });
+  } catch (error) {
+    console.log('Error during post of /chat', error);
+    res.status(500).json({
+      error: 'Failed during response genration',
+    });
+  }
 });
 
 // ============Initialising the server============
