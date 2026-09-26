@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import {
+  HumanMessage,
+  SystemMessage,
+  AIMessage,
+  BaseMessage,
+} from '@langchain/core/messages';
 import { ChatOllama } from '@langchain/ollama';
-import { error } from 'node:console';
 
 // ======Creating express app=========
 const app = express();
@@ -17,6 +21,13 @@ const model = new ChatOllama({
   model: 'llama3.2',
   temperature: 0.7,
 });
+
+const defaultSystemMessage = new SystemMessage(
+  'You are a helpful AI assistant. Keep your answers clear and concise',
+);
+
+// =======Chat History========
+const chatHistory: BaseMessage[] = [defaultSystemMessage];
 
 // ===============
 app.get('/', (req, res) => {
@@ -33,12 +44,12 @@ app.post('/chat', async (req, res) => {
       return res.status(400).json({
         error: 'message is a required field',
       });
-    const response = await model.invoke([
-      new HumanMessage(message),
-      new SystemMessage(
-        'You are a helpful AI assistant. Keep your answers clear and concise',
-      ),
-    ]);
+
+    //====Add new message and AI response to chat history to build memory=====
+    chatHistory.push(new HumanMessage(message));
+    const response = await model.invoke(chatHistory);
+    chatHistory.push(new AIMessage(response.content.toString()));
+
     res.json({
       reply: response.content,
     });
