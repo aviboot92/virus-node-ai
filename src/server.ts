@@ -1,7 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 
-import { StateGraph, MessagesValue, START, END } from '@langchain/langgraph';
+import {
+  StateGraph,
+  StateSchema,
+  MessagesValue,
+  START,
+  END,
+} from '@langchain/langgraph';
 import { ChatOllama } from '@langchain/ollama';
 
 // ======Creating express app=========
@@ -16,6 +22,26 @@ const model = new ChatOllama({
   model: 'llama3.2',
   temperature: 0.7,
 });
+
+// ======State=============
+const VirusState = new StateSchema({
+  messages: MessagesValue,
+});
+
+// ============ChatBotNode=========
+const chatbot = async (state: typeof VirusState.State) => {
+  const response = await model.invoke(state.messages);
+  return {
+    messages: [response],
+  };
+};
+
+// ==========Graph======
+const virusStateGraph = new StateGraph(VirusState)
+  .addNode('chatbot', chatbot)
+  .addEdge(START, 'chatbot')
+  .addEdge('chatbot', END)
+  .compile();
 
 // ===============
 app.get('/', (req, res) => {
@@ -32,6 +58,21 @@ app.post('/chat', async (req, res) => {
       return res.status(400).json({
         error: 'message is a required field',
       });
+
+    const result = await virusStateGraph.invoke({
+      messages: [
+        {
+          role: 'human',
+          content: message,
+        },
+      ],
+    });
+
+    const lastMessage = result.messages[result.messages.length - 1];
+
+    res.json({
+      reply: lastMessage.content,
+    });
 
     //====Add new message and AI response to chat history to build memory=====
   } catch (error) {
