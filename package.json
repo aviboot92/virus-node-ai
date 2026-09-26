@@ -14,9 +14,9 @@
   "license": "ISC",
   "dependencies": {
     "@langchain/core": "^1.2.12",
+    "@langchain/langgraph": "^1.4.18",
     "@langchain/ollama": "^1.3.0",
     "cors": "^2.8.6",
-    "dotenv": "^18.0.4",
     "express": "^5.2.1"
   },
   "devDependencies": {

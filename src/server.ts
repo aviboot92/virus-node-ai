@@ -1,12 +1,14 @@
 import express from 'express';
 import cors from 'cors';
-import 'dotenv/config';
+
 import {
-  HumanMessage,
-  SystemMessage,
-  AIMessage,
-  BaseMessage,
-} from '@langchain/core/messages';
+  StateGraph,
+  StateSchema,
+  MessagesValue,
+  START,
+  END,
+  MemorySaver,
+} from '@langchain/langgraph';
 import { ChatOllama } from '@langchain/ollama';
 
 // ======Creating express app=========
@@ -16,18 +18,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ========Defining OPENAI Model=======
+// ========Defining Ollama Model=======
 const model = new ChatOllama({
   model: 'llama3.2',
   temperature: 0.7,
 });
 
-const defaultSystemMessage = new SystemMessage(
-  'You are a helpful AI assistant. Keep your answers clear and concise',
-);
+// ======State=============
+const VirusState = new StateSchema({
+  messages: MessagesValue,
+});
 
-// =======Chat History========
-const chatHistory: BaseMessage[] = [defaultSystemMessage];
+// ============ChatBotNode=========
+const chatbot = async (state: typeof VirusState.State) => {
+  const response = await model.invoke(state.messages);
+  return {
+    messages: [response],
+  };
+};
+
+// ==========Checkpointer and Graph======
+const checkpointer = new MemorySaver();
+const virusStateGraph = new StateGraph(VirusState)
+  .addNode('chatbot', chatbot)
+  .addEdge(START, 'chatbot')
+  .addEdge('chatbot', END)
+  .compile({
+    checkpointer,
+  });
 
 // ===============
 app.get('/', (req, res) => {
@@ -39,20 +57,36 @@ app.get('/', (req, res) => {
 // ==========
 app.post('/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, threadId } = req.body;
+    console.log('threadId', threadId);
     if (!message)
       return res.status(400).json({
         error: 'message is a required field',
       });
 
-    //====Add new message and AI response to chat history to build memory=====
-    chatHistory.push(new HumanMessage(message));
-    const response = await model.invoke(chatHistory);
-    chatHistory.push(new AIMessage(response.content.toString()));
+    const result = await virusStateGraph.invoke(
+      {
+        messages: [
+          {
+            role: 'human',
+            content: message,
+          },
+        ],
+      },
+      {
+        configurable: {
+          thread_id: threadId,
+        },
+      },
+    );
+
+    const lastMessage = result.messages[result.messages.length - 1];
 
     res.json({
-      reply: response.content,
+      reply: lastMessage.content,
     });
+
+    //====Add new message and AI response to chat history to build memory=====
   } catch (error) {
     console.log('Error during post of /chat', error);
     res.status(500).json({
