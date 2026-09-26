@@ -7,6 +7,7 @@ import {
   MessagesValue,
   START,
   END,
+  MemorySaver,
 } from '@langchain/langgraph';
 import { ChatOllama } from '@langchain/ollama';
 
@@ -17,7 +18,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ========Defining OPENAI Model=======
+// ========Defining Ollama Model=======
 const model = new ChatOllama({
   model: 'llama3.2',
   temperature: 0.7,
@@ -36,12 +37,15 @@ const chatbot = async (state: typeof VirusState.State) => {
   };
 };
 
-// ==========Graph======
+// ==========Checkpointer and Graph======
+const checkpointer = new MemorySaver();
 const virusStateGraph = new StateGraph(VirusState)
   .addNode('chatbot', chatbot)
   .addEdge(START, 'chatbot')
   .addEdge('chatbot', END)
-  .compile();
+  .compile({
+    checkpointer,
+  });
 
 // ===============
 app.get('/', (req, res) => {
@@ -53,20 +57,28 @@ app.get('/', (req, res) => {
 // ==========
 app.post('/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, threadId } = req.body;
+    console.log('threadId', threadId);
     if (!message)
       return res.status(400).json({
         error: 'message is a required field',
       });
 
-    const result = await virusStateGraph.invoke({
-      messages: [
-        {
-          role: 'human',
-          content: message,
+    const result = await virusStateGraph.invoke(
+      {
+        messages: [
+          {
+            role: 'human',
+            content: message,
+          },
+        ],
+      },
+      {
+        configurable: {
+          thread_id: threadId,
         },
-      ],
-    });
+      },
+    );
 
     const lastMessage = result.messages[result.messages.length - 1];
 
