@@ -80,4 +80,7 @@ export class Chatbot {
         checkpointer,
       });
   }
+
+  // Public method used by our API
+  public async chat(message: string, threadId: string) {}
 }
