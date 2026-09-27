@@ -8,8 +8,30 @@ import {
   MemorySaver,
 } from '@langchain/langgraph';
 
+// ==========ConceptualRoadMap=======
+// Chatbot
+// │
+// ├── chatbotModal
+// │      └── ChatOllama
+// │
+// ├── chatbotGraph
+// │      └── LangGraph
+// │
+// ├── constructor()
+// │      ├── Create Ollama
+// │      ├── Define State
+// │      ├── Define Node
+// │      ├── Create MemorySaver
+// │      └── Build Graph
+// │
+// └── chat()
+//        ├── Accept message
+//        ├── Accept threadId
+//        ├── Invoke graph
+//        └── Return AI response
+
 //========== *@langchain*
-// /ollama
+// ollama
 // export OLLAMA_BASE_URL="http://127.0.0.1:11434"
 //  # Optional; defaults to http://127.0.0.1:11434 if not set
 
@@ -47,6 +69,15 @@ export class Chatbot {
     };
 
     // 4. Create memory/checkpointer
+    const checkpointer = new MemorySaver();
+
     // 5. Build LangGraph
+    this.chatbotGraph = new StateGraph(chatbotState)
+      .addNode('chatbot', chatbotNode)
+      .addEdge(START, 'chatbot')
+      .addEdge('chatbot', END)
+      .compile({
+        checkpointer,
+      });
   }
 }
