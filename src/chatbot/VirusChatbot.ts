@@ -3,14 +3,14 @@ import { MemorySaver } from '@langchain/langgraph';
 
 import { createChatbotGraph } from './chatbot.graph.js';
 
-import { type MemoryMode } from './types.js';
+import { ChatbotGraph, type MemoryMode } from './types.js';
 
 import { postgresCheckpointer } from '../memory/PostgresCheckpointer.js';
 
 export class VirusChatbot {
   private chatbotModel: ChatOllama;
-  private ephemeralGraph;
-  private persistentGraph;
+  private ephemeralGraph: ChatbotGraph;
+  private persistentGraph: ChatbotGraph;
 
   constructor() {
     this.chatbotModel = new ChatOllama({
