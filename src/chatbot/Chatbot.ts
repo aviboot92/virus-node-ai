@@ -82,5 +82,32 @@ export class Chatbot {
   }
 
   // Public method used by our API
-  public async chat(message: string, threadId: string) {}
+  public async chat(message: string, threadId: string) {
+    let returnValue;
+    // Run the LangGraph
+    const result = await this.chatbotGraph.invoke(
+      {
+        messages: [
+          {
+            role: 'human',
+            content: message,
+          },
+        ],
+      },
+      {
+        configurable: {
+          thread_id: threadId,
+        },
+      },
+    );
+    // Get the latest message
+    const lastMessage = result?.messages[result.messages.length - 1];
+    // Safety check
+    if (!lastMessage) {
+      throw new Error('No response recieved from chatbot');
+    }
+    // return AI response-content
+    returnValue = lastMessage.content;
+    return returnValue;
+  }
 }
