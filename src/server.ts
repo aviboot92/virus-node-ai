@@ -1,96 +1,45 @@
 import express from 'express';
 import cors from 'cors';
-
-import {
-  StateGraph,
-  StateSchema,
-  MessagesValue,
-  START,
-  END,
-  MemorySaver,
-} from '@langchain/langgraph';
-import { ChatOllama } from '@langchain/ollama';
+import { VirusMemorySaverChatbot } from './chatbot/VirusMemorySaverChatbot.js';
 
 // ======Creating express app=========
 const app = express();
 
-// ===========
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ========Defining Ollama Model=======
-const model = new ChatOllama({
-  model: 'llama3.2',
-  temperature: 0.7,
-});
+// Create chatbot instance
+const chatbot = new VirusMemorySaverChatbot();
+// console.log('chatbot', chatbot);
 
-// ======State=============
-const VirusState = new StateSchema({
-  messages: MessagesValue,
-});
-
-// ============ChatBotNode=========
-const chatbot = async (state: typeof VirusState.State) => {
-  const response = await model.invoke(state.messages);
-  return {
-    messages: [response],
-  };
-};
-
-// ==========Checkpointer and Graph======
-const checkpointer = new MemorySaver();
-const virusStateGraph = new StateGraph(VirusState)
-  .addNode('chatbot', chatbot)
-  .addEdge(START, 'chatbot')
-  .addEdge('chatbot', END)
-  .compile({
-    checkpointer,
-  });
-
-// ===============
+// Healthcheck
 app.get('/', (req, res) => {
   res.json({
     message: 'VIRUS-AI-CHATBOT running',
   });
 });
 
-// ==========
+// Session Memory chat where memory gets reset/cleared on restart of server
 app.post('/chat', async (req, res) => {
   try {
-    const { message, threadId } = req.body;
-    console.log('threadId', threadId);
+    const { message = '', threadId } = req.body;
+    // Message validation
     if (!message)
-      return res.status(400).json({
+      res.status(400).json({
         error: 'message is a required field',
       });
-
-    const result = await virusStateGraph.invoke(
-      {
-        messages: [
-          {
-            role: 'human',
-            content: message,
-          },
-        ],
-      },
-      {
-        configurable: {
-          thread_id: threadId,
-        },
-      },
-    );
-
-    const lastMessage = result.messages[result.messages.length - 1];
-
+    // Send message to chatbot
+    const chatbotReply = await chatbot.chat(message, threadId);
+    console.log('chatbotReply', chatbotReply);
+    // Send chatbot response
     res.json({
-      reply: lastMessage.content,
+      reply: chatbotReply,
     });
-
-    //====Add new message and AI response to chat history to build memory=====
   } catch (error) {
-    console.log('Error during post of /chat', error);
+    console.error('Error during POST /chat:', error);
     res.status(500).json({
-      error: 'Failed during response genration',
+      error: 'Failed during chat response generation',
     });
   }
 });
