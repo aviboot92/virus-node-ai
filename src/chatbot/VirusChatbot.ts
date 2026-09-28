@@ -29,9 +29,14 @@ export class VirusChatbot {
     );
   }
 
+  private getGraph(memoryMode: MemoryMode) {
+    return memoryMode === 'ephemeral'
+      ? this.ephemeralGraph
+      : this.persistentGraph;
+  }
+
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
-    const graph =
-      memoryMode === 'ephemeral' ? this.ephemeralGraph : this.persistentGraph;
+    const graph = this.getGraph(memoryMode);
     const result = await graph.invoke(
       {
         messages: [
