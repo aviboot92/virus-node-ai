@@ -1,17 +1,11 @@
 import { ChatOllama } from '@langchain/ollama';
-import {
-  END,
-  MemorySaver,
-  MessagesValue,
-  START,
-  StateGraph,
-  StateSchema,
-} from '@langchain/langgraph';
-import type { BaseCheckpointSaver } from '@langchain/langgraph-checkpoint';
+import { MemorySaver } from '@langchain/langgraph';
+
+import { createChatbotGraph } from './chatbot.graph.js';
+
+import { type MemoryMode } from './types.js';
 
 import { postgresCheckpointer } from '../memory/PostgresCheckpointer.js';
-
-export type MemoryMode = 'ephemeral' | 'persistent';
 
 export class VirusChatbot {
   private chatbotModel: ChatOllama;
@@ -23,36 +17,21 @@ export class VirusChatbot {
       model: 'llama3.2',
       temperature: 0,
     });
-    this.ephemeralGraph = this.createGraph(new MemorySaver());
-    this.persistentGraph = this.createGraph(postgresCheckpointer);
-  }
 
-  private createGraph(checkpointer: BaseCheckpointSaver) {
-    const chatbotState = new StateSchema({
-      messages: MessagesValue,
-    });
+    this.ephemeralGraph = createChatbotGraph(
+      this.chatbotModel,
+      new MemorySaver(),
+    );
 
-    const chatbotNode = async (state: typeof chatbotState.State) => {
-      const modelResponse = await this.chatbotModel.invoke(state.messages);
-
-      return {
-        messages: [modelResponse],
-      };
-    };
-
-    return new StateGraph(chatbotState)
-      .addNode('chatbot', chatbotNode)
-      .addEdge(START, 'chatbot')
-      .addEdge('chatbot', END)
-      .compile({
-        checkpointer,
-      });
+    this.persistentGraph = createChatbotGraph(
+      this.chatbotModel,
+      postgresCheckpointer,
+    );
   }
 
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
     const graph =
       memoryMode === 'ephemeral' ? this.ephemeralGraph : this.persistentGraph;
-
     const result = await graph.invoke(
       {
         messages: [
@@ -68,13 +47,10 @@ export class VirusChatbot {
         },
       },
     );
-
     const lastMessage = result.messages[result.messages.length - 1];
-
     if (!lastMessage) {
       throw new Error('No response received from chatbot');
     }
-
     return lastMessage.content;
   }
 }
