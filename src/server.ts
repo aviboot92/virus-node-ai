@@ -1,33 +1,47 @@
 import express from 'express';
 import cors from 'cors';
-
-import {
-  StateGraph,
-  StateSchema,
-  MessagesValue,
-  START,
-  END,
-  MemorySaver,
-} from '@langchain/langgraph';
-import { ChatOllama } from '@langchain/ollama';
+import { VirusMemorySaverChatbot } from './chatbot/VirusMemorySaverChatbot.js';
 
 // ======Creating express app=========
 const app = express();
 
-// ===========
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ===============
+// Create chatbot instance
+const chatbot = new VirusMemorySaverChatbot();
+// console.log('chatbot', chatbot);
+
+// Healthcheck
 app.get('/', (req, res) => {
   res.json({
     message: 'VIRUS-AI-CHATBOT running',
   });
 });
 
-// ==========
+// Session Memory chat where memory gets reset/cleared on restart of server
 app.post('/chat', async (req, res) => {
-  console.log(req, res);
+  try {
+    const { message = '', threadId } = req.body;
+    // Message validation
+    if (!message)
+      res.status(400).json({
+        error: 'message is a required field',
+      });
+    // Send message to chatbot
+    const chatbotReply = await chatbot.chat(message, threadId);
+    console.log('chatbotReply', chatbotReply);
+    // Send chatbot response
+    res.json({
+      reply: chatbotReply,
+    });
+  } catch (error) {
+    console.error('Error during POST /chat:', error);
+    res.status(500).json({
+      error: 'Failed during chat response generation',
+    });
+  }
 });
 
 // ============Initialising the server============

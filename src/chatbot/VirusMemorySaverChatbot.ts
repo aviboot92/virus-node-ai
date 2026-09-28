@@ -41,7 +41,7 @@ type ChatbotNodeReturnValue = {
   messages: AIMessage[];
 };
 
-export class Chatbot {
+export class VirusMemorySaverChatbot {
   // ==========Private properties==========
   private chatbotModal: ChatOllama;
   private chatbotGraph;
@@ -82,7 +82,7 @@ export class Chatbot {
   }
 
   // Public method used by our API
-  public async chat(message: string, threadId: string) {
+  public async chat(message: string, threadId: string = 'default-user') {
     let returnValue;
     // Run the LangGraph
     const result = await this.chatbotGraph.invoke(
@@ -108,6 +108,7 @@ export class Chatbot {
     }
     // return AI response-content
     returnValue = lastMessage.content;
+    console.log('lastMessage', lastMessage.content);
     return returnValue;
   }
 }
