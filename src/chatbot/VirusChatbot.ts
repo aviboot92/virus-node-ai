@@ -6,6 +6,7 @@ import {
   START,
   END,
   BaseCheckpointSaver,
+  MemorySaver,
 } from '@langchain/langgraph';
 
 // ==========ConceptualRoadMap=======
@@ -41,13 +42,16 @@ type ChatbotNodeReturnValue = {
   messages: AIMessage[];
 };
 
-export class VirusMemorySaverChatbot {
+export type MemoryMode = 'ephemeral' | 'persistent';
+
+export class VirusChatbot {
   // ==========Private properties==========
   private chatbotModal: ChatOllama;
-  private chatbotGraph;
+  private ephemeralGraph;
+  private persistentGraph;
 
   //============constructor============
-  constructor(checkpointer: BaseCheckpointSaver) {
+  constructor(persistentCheckpointer: BaseCheckpointSaver) {
     // 1. Create Ollama Modal
     this.chatbotModal = new ChatOllama({
       model: 'llama3.2',
@@ -68,24 +72,38 @@ export class VirusMemorySaverChatbot {
       return returnValue;
     };
 
-    // // 4. Create memory/checkpointer
-    // const checkpointer = new MemorySaver();
-
-    // 4. Build LangGraph
-    this.chatbotGraph = new StateGraph(chatbotState)
+    // 4. Ephemeral memory
+    const memorySaver = new MemorySaver();
+    this.ephemeralGraph = new StateGraph(chatbotState)
       .addNode('chatbot', chatbotNode)
       .addEdge(START, 'chatbot')
       .addEdge('chatbot', END)
       .compile({
-        checkpointer,
+        checkpointer: memorySaver,
+      });
+
+    // 5. Persistent memory
+    this.persistentGraph = new StateGraph(chatbotState)
+      .addNode('chatbot', chatbotNode)
+      .addEdge(START, 'chatbot')
+      .addEdge('chatbot', END)
+      .compile({
+        checkpointer: persistentCheckpointer,
       });
   }
 
   // Public method used by our API
-  public async chat(message: string, threadId: string = 'default-user') {
+  public async chat(
+    message: string,
+    threadId: string = 'default-user',
+    memoryMode: MemoryMode = 'persistent',
+  ) {
     let returnValue;
+    // Select graph based on memory mode
+    const graph =
+      memoryMode === 'ephemeral' ? this.ephemeralGraph : this.persistentGraph;
     // Run the LangGraph
-    const result = await this.chatbotGraph.invoke(
+    const result = await graph.invoke(
       {
         messages: [
           {
@@ -108,7 +126,6 @@ export class VirusMemorySaverChatbot {
     }
     // return AI response-content
     returnValue = lastMessage.content;
-    console.log('lastMessage', lastMessage.content);
     return returnValue;
   }
 }

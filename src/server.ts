@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { VirusMemorySaverChatbot } from './chatbot/VirusMemorySaverChatbot.js';
+import { VirusChatbot } from './chatbot/VirusChatbot.js';
 import { postgresCheckpointer } from './memory/PostgresCheckpointer.js';
 
 // ======Creating express app=========
@@ -14,7 +14,7 @@ async function startServer() {
   // Initialize LangGraph PostgreSQL tables
   await postgresCheckpointer.setup();
   // Create chatbot instance
-  const chatbot = new VirusMemorySaverChatbot(postgresCheckpointer);
+  const chatbot = new VirusChatbot(postgresCheckpointer);
   // console.log('chatbot', chatbot);
 
   // Healthcheck
@@ -27,15 +27,14 @@ async function startServer() {
   // Session Memory chat where memory gets reset/cleared on restart of server
   app.post('/chat', async (req, res) => {
     try {
-      const { message = '', threadId } = req.body;
+      const { message = '', threadId, memoryMode } = req.body;
       // Message validation
       if (!message)
         res.status(400).json({
           error: 'message is a required field',
         });
       // Send message to chatbot
-      const chatbotReply = await chatbot.chat(message, threadId);
-      console.log('chatbotReply', chatbotReply);
+      const chatbotReply = await chatbot.chat(message, threadId, memoryMode);
       // Send chatbot response
       res.json({
         reply: chatbotReply,
