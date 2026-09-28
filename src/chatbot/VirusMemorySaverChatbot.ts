@@ -5,7 +5,7 @@ import {
   MessagesValue,
   START,
   END,
-  MemorySaver,
+  BaseCheckpointSaver,
 } from '@langchain/langgraph';
 
 // ==========ConceptualRoadMap=======
@@ -47,7 +47,7 @@ export class VirusMemorySaverChatbot {
   private chatbotGraph;
 
   //============constructor============
-  constructor() {
+  constructor(checkpointer: BaseCheckpointSaver) {
     // 1. Create Ollama Modal
     this.chatbotModal = new ChatOllama({
       model: 'llama3.2',
@@ -68,10 +68,10 @@ export class VirusMemorySaverChatbot {
       return returnValue;
     };
 
-    // 4. Create memory/checkpointer
-    const checkpointer = new MemorySaver();
+    // // 4. Create memory/checkpointer
+    // const checkpointer = new MemorySaver();
 
-    // 5. Build LangGraph
+    // 4. Build LangGraph
     this.chatbotGraph = new StateGraph(chatbotState)
       .addNode('chatbot', chatbotNode)
       .addEdge(START, 'chatbot')
