@@ -1,3 +1,9 @@
 node_modules/
+dist/
 .env
-src/generated/prisma
+
+.claude/skills/
+.windsurf/skills/
+.agents/skills/
+
+src/generated/prisma/
