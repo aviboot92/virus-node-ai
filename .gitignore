@@ -7,3 +7,7 @@ dist/
 .agents/skills/
 
 src/generated/prisma/
+
+data/*.db
+data/*.db-shm
+data/*.db-wal

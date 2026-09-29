@@ -11,7 +11,7 @@ export function createChatRouter(chatbot: VirusChatbot) {
       const {
         message,
         threadId = 'default-user',
-        memoryMode = 'persistent',
+        memoryMode = 'sqlite',
       } = req.body as Partial<ChatRequest>;
 
       if (!message || typeof message !== 'string') {
@@ -20,9 +20,13 @@ export function createChatRouter(chatbot: VirusChatbot) {
         });
       }
 
-      if (memoryMode !== 'ephemeral' && memoryMode !== 'persistent') {
+      if (
+        memoryMode !== 'ephemeral' &&
+        memoryMode !== 'sqlite' &&
+        memoryMode !== 'postgres'
+      ) {
         return res.status(400).json({
-          error: "memoryMode must be 'ephemeral' or 'persistent'",
+          error: "memoryMode must be 'ephemeral', 'sqlite', or 'postgres'",
         });
       }
 

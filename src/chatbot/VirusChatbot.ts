@@ -1,16 +1,15 @@
 import { ChatOllama } from '@langchain/ollama';
 import { MemorySaver } from '@langchain/langgraph';
-
 import { createChatbotGraph } from './chatbot.graph.js';
-
 import { ChatbotGraph, type MemoryMode } from '../types/chatbot.js';
-
 import { postgresCheckpointer } from '../memory/PostgresCheckpointer.js';
+import { sqliteCheckpointer } from '../memory/SqliteCheckpointer.js';
 
 export class VirusChatbot {
   private chatbotModel: ChatOllama;
   private ephemeralGraph: ChatbotGraph;
-  private persistentGraph: ChatbotGraph;
+  private sqliteGraph: ChatbotGraph;
+  private postgreGraph: ChatbotGraph;
 
   constructor() {
     this.chatbotModel = new ChatOllama({
@@ -23,16 +22,29 @@ export class VirusChatbot {
       new MemorySaver(),
     );
 
-    this.persistentGraph = createChatbotGraph(
+    this.sqliteGraph = createChatbotGraph(
+      this.chatbotModel,
+      sqliteCheckpointer,
+    );
+
+    this.postgreGraph = createChatbotGraph(
       this.chatbotModel,
       postgresCheckpointer,
     );
   }
 
   private getGraph(memoryMode: MemoryMode) {
-    return memoryMode === 'ephemeral'
-      ? this.ephemeralGraph
-      : this.persistentGraph;
+    switch (memoryMode) {
+      case 'ephemeral':
+        return this.ephemeralGraph;
+
+      case 'postgres':
+        return this.postgreGraph;
+
+      case 'sqlite':
+      default:
+        return this.sqliteGraph;
+    }
   }
 
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
