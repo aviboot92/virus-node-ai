@@ -1,51 +1,36 @@
 import express from 'express';
 import cors from 'cors';
-import { VirusMemorySaverChatbot } from './chatbot/VirusMemorySaverChatbot.js';
 
-// ======Creating express app=========
-const app = express();
+import { VirusChatbot } from './chatbot/VirusChatbot.js';
+import { postgresCheckpointer } from './memory/PostgresCheckpointer.js';
+import { createChatRouter } from './routes/chat.routes.js';
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Create chatbot instance
-const chatbot = new VirusMemorySaverChatbot();
-// console.log('chatbot', chatbot);
-
-// Healthcheck
-app.get('/', (req, res) => {
-  res.json({
-    message: 'VIRUS-AI-CHATBOT running',
-  });
-});
-
-// Session Memory chat where memory gets reset/cleared on restart of server
-app.post('/chat', async (req, res) => {
-  try {
-    const { message = '', threadId } = req.body;
-    // Message validation
-    if (!message)
-      res.status(400).json({
-        error: 'message is a required field',
-      });
-    // Send message to chatbot
-    const chatbotReply = await chatbot.chat(message, threadId);
-    console.log('chatbotReply', chatbotReply);
-    // Send chatbot response
-    res.json({
-      reply: chatbotReply,
-    });
-  } catch (error) {
-    console.error('Error during POST /chat:', error);
-    res.status(500).json({
-      error: 'Failed during chat response generation',
-    });
-  }
-});
-
-// ============Initialising the server============
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`Chatbot API running on http://localhost:${PORT}`);
+
+async function startServer() {
+  await postgresCheckpointer.setup();
+
+  const app = express();
+
+  app.use(cors());
+  app.use(express.json());
+
+  const chatbot = new VirusChatbot();
+
+  app.get('/', (_req, res) => {
+    res.json({
+      message: 'Virus AI Bot is running',
+    });
+  });
+
+  app.use('/chat', createChatRouter(chatbot));
+
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });
