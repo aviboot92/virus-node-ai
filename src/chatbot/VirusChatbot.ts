@@ -3,7 +3,7 @@ import { MemorySaver } from '@langchain/langgraph';
 
 import { createChatbotGraph } from './chatbot.graph.js';
 
-import { ChatbotGraph, type MemoryMode } from './types.js';
+import { ChatbotGraph, type MemoryMode } from '../types/chatbot.js';
 
 import { postgresCheckpointer } from '../memory/PostgresCheckpointer.js';
 
@@ -56,6 +56,24 @@ export class VirusChatbot {
     if (!lastMessage) {
       throw new Error('No response received from chatbot');
     }
-    return lastMessage.content;
+    const content = lastMessage.content;
+
+    if (typeof content === 'string') {
+      return content;
+    }
+
+    return content
+      .map((block) => {
+        if (typeof block === 'string') {
+          return block;
+        }
+
+        if ('text' in block) {
+          return block.text;
+        }
+
+        return '';
+      })
+      .join('');
   }
 }

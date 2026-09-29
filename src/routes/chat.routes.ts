@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import { VirusChatbot, type MemoryMode } from '../chatbot/VirusChatbot.js';
+import { VirusChatbot } from '../chatbot/VirusChatbot.js';
+import type { MemoryMode } from '../types/chatbot.js';
+import type { ChatRequest, ChatResponse } from '../types/api.js';
 
 export function createChatRouter(chatbot: VirusChatbot) {
   const router = Router();
@@ -10,7 +12,7 @@ export function createChatRouter(chatbot: VirusChatbot) {
         message,
         threadId = 'default-user',
         memoryMode = 'persistent',
-      } = req.body;
+      } = req.body as Partial<ChatRequest>;
 
       if (!message || typeof message !== 'string') {
         return res.status(400).json({
@@ -30,13 +32,16 @@ export function createChatRouter(chatbot: VirusChatbot) {
         memoryMode as MemoryMode,
       );
 
-      return res.json({
+      const response: ChatResponse = {
         reply,
         threadId,
         memoryMode,
-      });
+      };
+
+      return res.json(response);
     } catch (error) {
       console.error('Chat error:', error);
+
       return res.status(500).json({
         error: 'Failed to process chat request',
       });
