@@ -46,6 +46,88 @@ The following are planned but are **not part of the current implementation**:
 - Code understanding
 - NPM package distribution
 
+# Quick Start
+
+Get the chatbot running with **SQLite** in a few steps. PostgreSQL is optional.
+
+### 1. Clone and install
+
+```bash
+git clone <repository-url>
+cd virusAI-BOT
+npm install
+```
+
+### 2. Start Ollama
+
+Make sure Ollama is running and download the model:
+
+```bash
+ollama pull llama3.2
+```
+
+### 3. Start the application
+
+```bash
+npm run dev
+```
+
+SQLite is the default persistence provider, so **PostgreSQL is not required**.
+
+### 4. Test the API
+
+Send a `POST` request to:
+
+```text
+http://localhost:3000/chat
+```
+
+Example:
+
+```json
+{
+  "message": "Hello, my name is Avinash",
+  "threadId": "quickstart-001"
+}
+```
+
+Because `memoryMode` is omitted, the request uses **SQLite automatically**.
+
+### 5. Test memory
+
+Send:
+
+```json
+{
+  "message": "What is my name?",
+  "threadId": "quickstart-001"
+}
+```
+
+The chatbot should remember the previous message.
+
+### 6. Build the project
+
+```bash
+npm run build
+```
+
+### Optional: PostgreSQL
+
+If you want PostgreSQL persistence:
+
+```json
+{
+  "message": "Hello",
+  "threadId": "postgres-001",
+  "memoryMode": "postgres"
+}
+```
+
+PostgreSQL must be installed, running, and configured before using this mode.
+
+If PostgreSQL is unavailable, the API returns `503 Service Unavailable` and suggests using SQLite.
+
 ---
 
 # Architecture
