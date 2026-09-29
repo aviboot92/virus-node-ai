@@ -46,6 +46,18 @@ export function createChatRouter(chatbot: VirusChatbot) {
     } catch (error) {
       console.error('Chat error:', error);
 
+      if (
+        error instanceof Error &&
+        error.message.includes('PostgreSQL is unavailable')
+      ) {
+        return res.status(503).json({
+          error: 'PostgreSQL is unavailable',
+          message:
+            'Please install and start PostgreSQL, or use SQLite instead.',
+          suggestedMemoryMode: 'sqlite',
+        });
+      }
+
       return res.status(500).json({
         error: 'Failed to process chat request',
       });
