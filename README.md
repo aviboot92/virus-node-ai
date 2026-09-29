@@ -6,9 +6,9 @@ The project is designed as the foundation for a future AI platform that will evo
 
 ---
 
-## Project Status
+# Project Status
 
-### Current Phase
+## Current Phase
 
 **Phase 1 — Chatbot Foundation: COMPLETE**
 
@@ -18,18 +18,20 @@ Implemented:
 - Express API
 - LangGraph state management
 - Ollama integration
-- Llama 3.2 model
+- Llama 3.2
 - Thread-based conversations
 - Ephemeral memory
 - SQLite persistent memory
 - PostgreSQL persistent memory
 - Prisma
 - API request validation
-- Multiple persistence modes
+- Multiple memory modes
 - SQLite as the default persistence mode
-- PostgreSQL as an alternative persistent backend
+- Optional PostgreSQL persistence
+- Graceful PostgreSQL-unavailable handling
+- Structured API error response for unavailable PostgreSQL
 
-### Not Implemented Yet
+## Not Implemented Yet
 
 The following are planned but are **not part of the current implementation**:
 
@@ -87,7 +89,7 @@ The following are planned but are **not part of the current implementation**:
              |             |             |
              v             v             v
         MemorySaver     SQLite      PostgreSQL
-        ephemeral       persistent   persistent
+        ephemeral       persistent   optional
 ```
 
 ---
@@ -115,6 +117,19 @@ getGraph(memoryMode)
      +---- sqlite -------> SqliteSaver
      |
      +---- postgres ------> PostgreSQL Checkpointer
+                                |
+                                +-- available
+                                |      |
+                                |      v
+                                |   Continue
+                                |
+                                +-- unavailable
+                                       |
+                                       v
+                                  HTTP 503
+                                       |
+                                       v
+                              Use SQLite instead
      |
      v
 LangGraph
@@ -180,7 +195,17 @@ MemoryMode
            +-- PostgreSQL Checkpointer
 ```
 
-## 1. Ephemeral
+## Memory Selection
+
+| Mode        | Persistence | Default | PostgreSQL Required |
+| ----------- | ----------- | ------: | ------------------: |
+| `ephemeral` | No          |      No |                  No |
+| `sqlite`    | Yes         | **Yes** |                  No |
+| `postgres`  | Yes         |      No |             **Yes** |
+
+---
+
+# 1. Ephemeral Memory
 
 Uses:
 
@@ -198,7 +223,7 @@ Characteristics:
 
 ---
 
-## 2. SQLite
+# 2. SQLite Persistence
 
 Uses:
 
@@ -211,21 +236,22 @@ SQLite is the **default persistence mode**.
 Characteristics:
 
 - Persistent
-- No separate database server
+- No database server required
 - Stored in a local SQLite database file
-- Simple deployment
+- Simple setup
 - Useful for local development
 - Suitable for lightweight/single-instance deployments
+- Works without PostgreSQL
 
-Default database location:
+Default database:
 
 ```text
 data/chatbot.db
 ```
 
-SQLite is not intended to replace PostgreSQL for highly concurrent, horizontally scaled production workloads.
+The application creates/uses the SQLite database automatically.
 
-### Git
+## SQLite Git Rule
 
 The SQLite database should not be committed.
 
@@ -235,11 +261,13 @@ Recommended `.gitignore`:
 data/
 ```
 
+SQLite is not intended to replace PostgreSQL for highly concurrent, horizontally scaled production workloads.
+
 ---
 
-## 3. PostgreSQL
+# 3. PostgreSQL Persistence
 
-PostgreSQL provides persistent memory for larger and multi-user deployments.
+PostgreSQL provides an alternative persistent memory backend.
 
 Characteristics:
 
@@ -249,6 +277,73 @@ Characteristics:
 - Suitable for scalable deployments
 - Integrated with Prisma
 - Can later support PostgreSQL-based RAG/vector storage
+
+## PostgreSQL Is Optional
+
+PostgreSQL is **not required to start the application**.
+
+The application starts with:
+
+```text
+SQLite
+```
+
+as the default persistence provider.
+
+PostgreSQL is only initialized when the user explicitly selects:
+
+```text
+memoryMode = "postgres"
+```
+
+Therefore:
+
+```text
+No PostgreSQL installed
+        |
+        v
+npm run dev
+        |
+        v
+Application starts normally
+        |
+        v
+SQLite works
+```
+
+---
+
+# PostgreSQL Unavailable Behavior
+
+If a user explicitly selects:
+
+```json
+{
+  "memoryMode": "postgres"
+}
+```
+
+but PostgreSQL is unavailable, the application must **not crash**.
+
+The chatbot catches the PostgreSQL failure and returns a controlled error.
+
+Expected HTTP status:
+
+```text
+503 Service Unavailable
+```
+
+Example response:
+
+```json
+{
+  "error": "PostgreSQL is unavailable",
+  "message": "Please install and start PostgreSQL, or use SQLite instead.",
+  "suggestedMemoryMode": "sqlite"
+}
+```
+
+This allows the client application to gracefully inform the user and switch to SQLite.
 
 ---
 
@@ -297,27 +392,10 @@ START
 chatbot
   |
   v
- END
+END
 ```
 
-The chatbot node receives the current message state and invokes the LLM.
-
-Conceptually:
-
-```text
-State
- |
- +-- messages[]
-       |
-       v
-   ChatOllama
-       |
-       v
-    AIMessage
-       |
-       v
-   messages[]
-```
+The current implementation deliberately keeps the graph simple because RAG, tools, and agent behavior are planned for later phases.
 
 ---
 
@@ -343,7 +421,13 @@ const chatbotState = new StateSchema({
 });
 ```
 
-The chatbot node returns a state update:
+The chatbot node invokes the model:
+
+```ts
+const modelResponse = await model.invoke(state.messages);
+```
+
+and returns a state update:
 
 ```ts
 return {
@@ -351,7 +435,7 @@ return {
 };
 ```
 
-LangGraph combines this update with the existing message state using the `MessagesValue` reducer.
+`MessagesValue` handles the message-state reduction.
 
 ---
 
@@ -361,12 +445,15 @@ LangGraph combines this update with the existing message state using the `Messag
 
 Responsibilities:
 
-1. Create the ChatOllama model.
-2. Create the available graph instances.
-3. Select a graph based on `MemoryMode`.
-4. Invoke the graph.
-5. Pass the `thread_id`.
-6. Normalize the model response into a string.
+1. Initialize the LLM.
+2. Initialize ephemeral memory.
+3. Initialize SQLite persistence.
+4. Lazily initialize PostgreSQL when requested.
+5. Select the graph based on `MemoryMode`.
+6. Invoke the graph.
+7. Pass `thread_id`.
+8. Normalize the model response.
+9. Handle PostgreSQL availability errors.
 
 Current structure:
 
@@ -386,6 +473,10 @@ VirusChatbot
     +-- chat()
 ```
 
+`postgreGraph` is intentionally optional/lazy.
+
+This means the application does not require PostgreSQL just to start.
+
 ---
 
 # MemoryMode
@@ -396,9 +487,15 @@ Current type:
 export type MemoryMode = 'ephemeral' | 'sqlite' | 'postgres';
 ```
 
-SQLite is the default mode.
+SQLite is the default.
 
-Do not reintroduce the generic `"persistent"` mode.
+Do not use the old generic:
+
+```text
+persistent
+```
+
+mode.
 
 Both SQLite and PostgreSQL are persistent, so they are explicitly named.
 
@@ -417,7 +514,7 @@ Both SQLite and PostgreSQL are persistent, so they are explicitly named.
 | Ollama         | Local model runtime             |
 | Llama 3.2      | Current LLM                     |
 | SQLite         | Default persistent memory       |
-| PostgreSQL     | Alternative persistent memory   |
+| PostgreSQL     | Optional persistent memory      |
 | Prisma         | PostgreSQL ORM/database tooling |
 | Postman        | API testing                     |
 
@@ -484,8 +581,10 @@ Responsible for:
 - Model initialization
 - Graph initialization
 - Memory selection
+- PostgreSQL lazy initialization
 - Chat invocation
 - Response normalization
+- Persistence error handling
 
 ---
 
@@ -513,6 +612,8 @@ Provides SQLite-backed LangGraph persistence.
 
 Provides PostgreSQL-backed LangGraph persistence.
 
+PostgreSQL should remain optional from the application's startup perspective.
+
 ---
 
 ## `chat.routes.ts`
@@ -524,6 +625,7 @@ Responsible for:
 - Calling `VirusChatbot`
 - HTTP response formatting
 - HTTP error handling
+- PostgreSQL unavailable response
 
 It should not contain LLM orchestration logic.
 
@@ -553,13 +655,19 @@ export interface ChatResponse {
 
 # Prerequisites
 
-Install:
+Required:
 
 - Node.js
 - npm
 - Ollama
 
-PostgreSQL is required only when using PostgreSQL persistence.
+PostgreSQL is **optional**.
+
+You only need PostgreSQL if you want to use:
+
+```text
+memoryMode = "postgres"
+```
 
 ---
 
@@ -621,7 +729,7 @@ Create:
 .env
 ```
 
-Configure the PostgreSQL connection.
+PostgreSQL configuration is required only if PostgreSQL persistence is going to be used.
 
 Example:
 
@@ -631,9 +739,13 @@ DATABASE_URL="postgresql://username:password@localhost:5432/virus_ai_bot"
 
 Do not commit `.env`.
 
+SQLite does not require a database connection string.
+
 ---
 
 # Prisma Setup
+
+Prisma is currently used for PostgreSQL-related database functionality.
 
 Generate Prisma Client:
 
@@ -647,7 +759,7 @@ Run development migrations:
 npx prisma migrate dev
 ```
 
-Prisma migration files must be committed to Git.
+Commit Prisma migrations to Git.
 
 ---
 
@@ -661,6 +773,7 @@ prisma/migrations/
 prisma.config.ts
 package.json
 package-lock.json
+README.md
 ```
 
 Do not commit:
@@ -694,6 +807,8 @@ Production:
 npm start
 ```
 
+The application can start with SQLite even when PostgreSQL is not installed or running.
+
 ---
 
 # API
@@ -720,14 +835,34 @@ sqlite
 postgres
 ```
 
-If `memoryMode` is omitted, SQLite is used.
+---
 
-Example:
+# SQLite Default
+
+If `memoryMode` is omitted:
 
 ```json
 {
   "message": "Hello",
   "threadId": "conversation-001"
+}
+```
+
+the application uses:
+
+```text
+SQLite
+```
+
+automatically.
+
+Equivalent:
+
+```json
+{
+  "message": "Hello",
+  "threadId": "conversation-001",
+  "memoryMode": "sqlite"
 }
 ```
 
@@ -754,6 +889,14 @@ The API validates:
 - `message`
 - `memoryMode`
 
+Valid values:
+
+```text
+ephemeral
+sqlite
+postgres
+```
+
 Invalid memory mode:
 
 ```json
@@ -776,10 +919,48 @@ Missing message also returns:
 400 Bad Request
 ```
 
-Unexpected chatbot errors return:
+Unexpected application errors return:
 
 ```text
 500 Internal Server Error
+```
+
+PostgreSQL dependency errors return:
+
+```text
+503 Service Unavailable
+```
+
+---
+
+# PostgreSQL Error Contract
+
+When:
+
+```json
+{
+  "memoryMode": "postgres"
+}
+```
+
+is selected and PostgreSQL is unavailable:
+
+```json
+{
+  "error": "PostgreSQL is unavailable",
+  "message": "Please install and start PostgreSQL, or use SQLite instead.",
+  "suggestedMemoryMode": "sqlite"
+}
+```
+
+The Node.js application remains running.
+
+The client can then retry using:
+
+```json
+{
+  "memoryMode": "sqlite"
+}
 ```
 
 ---
@@ -816,9 +997,9 @@ The conversation should still exist.
 
 ---
 
-## PostgreSQL
+# PostgreSQL
 
-Send:
+If PostgreSQL is available:
 
 ```json
 {
@@ -832,7 +1013,39 @@ Restart the application and verify that the same thread still contains its previ
 
 ---
 
-## Ephemeral
+# PostgreSQL Without PostgreSQL Installed
+
+The application should still start:
+
+```bash
+npm run dev
+```
+
+because SQLite is the default.
+
+If the user explicitly selects PostgreSQL:
+
+```json
+{
+  "message": "Hello",
+  "threadId": "postgres-test-001",
+  "memoryMode": "postgres"
+}
+```
+
+the API should return:
+
+```text
+503 Service Unavailable
+```
+
+with a suggestion to use SQLite.
+
+The application itself should remain running.
+
+---
+
+# Ephemeral
 
 Send:
 
@@ -877,6 +1090,7 @@ This behavior is fundamental to the chatbot architecture.
 | Persistent             | No        | Yes                | Yes        |
 | Survives restart       | No        | Yes                | Yes        |
 | Database server        | No        | No                 | Yes        |
+| PostgreSQL required    | No        | No                 | Yes        |
 | Lightweight            | Yes       | Yes                | No         |
 | Multi-user scalability | Limited   | Limited            | Yes        |
 | Default                | No        | **Yes**            | No         |
@@ -928,11 +1142,42 @@ Database
 
 The chatbot should not contain PostgreSQL-specific logic in its core conversation flow.
 
-The chatbot selects persistence through `MemoryMode`.
+Persistence is selected through `MemoryMode`.
 
 ---
 
-## 4. Thread ID Represents Conversation State
+## 4. PostgreSQL Must Remain Optional
+
+The application must be able to start without PostgreSQL.
+
+SQLite is the default.
+
+PostgreSQL should only be initialized when explicitly requested.
+
+---
+
+## 5. Graceful Dependency Failure
+
+An unavailable optional dependency should not crash the application.
+
+For PostgreSQL:
+
+```text
+PostgreSQL unavailable
+        |
+        v
+Controlled error
+        |
+        v
+503 response
+        |
+        v
+Suggest SQLite
+```
+
+---
+
+## 6. Thread ID Represents Conversation State
 
 Do not use `threadId` as a replacement for authentication or user identity.
 
@@ -954,7 +1199,7 @@ Do not assume that:
 - Embeddings exist
 - Vector search exists
 - Tools exist
-- An autonomous agent exists
+- Autonomous agents exist
 - Code scanning exists
 - GitHub integration exists
 
@@ -1004,6 +1249,8 @@ postgres
 
 SQLite is the default.
 
+PostgreSQL is optional.
+
 ---
 
 ## Important Naming
@@ -1016,7 +1263,27 @@ sqliteGraph
 postgreGraph
 ```
 
-Do not use a generic `persistentGraph` name because both SQLite and PostgreSQL are persistent.
+Do not use:
+
+```text
+persistentGraph
+```
+
+because both SQLite and PostgreSQL are persistent.
+
+---
+
+## Important Behavioral Rules
+
+Future changes should preserve:
+
+1. SQLite as the default.
+2. PostgreSQL as optional.
+3. Application startup without PostgreSQL.
+4. Graceful PostgreSQL failure.
+5. Thread isolation.
+6. Existing API contracts.
+7. The current chatbot graph unless there is a deliberate architectural reason to change it.
 
 ---
 
@@ -1166,7 +1433,7 @@ Intended architecture:
 
 # Phase 6 — Codebase AI Agent
 
-The long-term goal is an AI system that can understand software repositories.
+The long-term goal is an AI system capable of understanding software repositories.
 
 Potential architecture:
 
@@ -1299,9 +1566,11 @@ Recommended development sequence:
       ↓
 5. Verify persistence
       ↓
-6. Commit
+6. Verify failure scenarios
       ↓
-7. Continue to next feature
+7. Commit
+      ↓
+8. Continue to next feature
 ```
 
 Do not introduce several architectural changes simultaneously.
@@ -1328,6 +1597,10 @@ Do not introduce several architectural changes simultaneously.
 [x] API validation
 [x] Multiple memory modes
 [x] SQLite default
+[x] PostgreSQL optional
+[x] PostgreSQL lazy initialization
+[x] Graceful PostgreSQL failure
+[x] PostgreSQL 503 API response
 [x] Persistence testing
 
 [ ] RAG
