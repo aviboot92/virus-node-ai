@@ -12,9 +12,9 @@ export async function askRag(
   content: string,
 ): Promise<string> {
   // 1. Split document into chunks
-  const documents = await splitDocument(content);
+  const documentChunks = await splitDocument(content);
   // 2. Create Vector store
-  const vectorStore = await createVectorStore(documents);
+  const vectorStore = await createVectorStore(documentChunks);
   // 3. Retrieve relevant chunks
   const results = await vectorStore.similaritySearch(question, 3);
   // 4. Build context
