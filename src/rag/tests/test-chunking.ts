@@ -1,4 +1,4 @@
-import { splitDocument } from './documents/loader.js';
+import { splitDocument } from '../documents/loader.js';
 
 const text = `
 My dog is a Labrador.

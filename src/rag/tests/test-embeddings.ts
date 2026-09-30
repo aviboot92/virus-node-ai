@@ -1,4 +1,4 @@
-import { embeddings } from './embeddings/embeddings.js';
+import { embeddings } from '../embeddings/embeddings.js';
 
 const vector = await embeddings.embedQuery('My dog loves playing with balls');
 

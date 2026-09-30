@@ -1,5 +1,5 @@
-import { splitDocument } from './documents/loader.js';
-import { createVectorStore } from './vectorstore/vectorstore.js';
+import { splitDocument } from '../documents/loader.js';
+import { createVectorStore } from '../vectorstore/vectorstore.js';
 
 const text = `
 My dog is a Labrador.
