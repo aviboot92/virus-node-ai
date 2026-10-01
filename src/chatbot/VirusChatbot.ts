@@ -63,14 +63,24 @@ export class VirusChatbot {
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
     const graph = this.getGraph(memoryMode);
     const context = await this.ragService.retrieve(message, 3);
-    console.log('RAG Context:', context);
     try {
       const result = await graph.invoke(
         {
           messages: [
             {
               role: 'human',
-              content: message,
+              content: `
+                  Answer the user's question using the provided knowledge.
+
+                  Knowledge:
+                  ${context}
+
+                  User question:
+                  ${message}
+
+                  If the answer cannot be found in the knowledge, say:
+                  "I don't have enough information in my knowledge base."
+                  `,
             },
           ],
         },
