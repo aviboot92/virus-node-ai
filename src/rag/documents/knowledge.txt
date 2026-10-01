@@ -367,3 +367,5 @@ A dog's body language should be interpreted in context.
 Positive reinforcement rewards desirable behavior.
 
 Recall training should begin in safe and controlled environments.
+
+Rudra's favourite food is Chicken.

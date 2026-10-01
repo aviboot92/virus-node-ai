@@ -9,10 +9,15 @@ import { sqliteCheckpointer } from '../memory/SqliteCheckpointer.js';
 import { RagService } from '../rag/RagService.js';
 
 export class VirusChatbot {
+  // This is state is responsible for model
   private chatbotModel: ChatOllama;
+  // This is state is responsible for Graphs
+  // These graphs have two memories one is Ephemeral for RAM Memory
   private ephemeralGraph: ChatbotGraph;
+  // These graphs have two memories one is Ephemeral for ROM Memory
   private sqliteGraph: ChatbotGraph;
   private postgreGraph?: ChatbotGraph;
+  // This is the RAG_SERVICE State.
   private ragService: RagService;
 
   constructor() {
