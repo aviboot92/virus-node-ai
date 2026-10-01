@@ -6,28 +6,29 @@ import { ChatbotGraph, type MemoryMode } from '../types/chatbot.js';
 
 import { postgresCheckpointer } from '../memory/PostgresCheckpointer.js';
 import { sqliteCheckpointer } from '../memory/SqliteCheckpointer.js';
+import { RagService } from '../rag/RagService.js';
 
 export class VirusChatbot {
   private chatbotModel: ChatOllama;
   private ephemeralGraph: ChatbotGraph;
   private sqliteGraph: ChatbotGraph;
   private postgreGraph?: ChatbotGraph;
+  private ragService: RagService;
 
   constructor() {
     this.chatbotModel = new ChatOllama({
       model: 'llama3.2',
       temperature: 0,
     });
-
     this.ephemeralGraph = createChatbotGraph(
       this.chatbotModel,
       new MemorySaver(),
     );
-
     this.sqliteGraph = createChatbotGraph(
       this.chatbotModel,
       sqliteCheckpointer,
     );
+    this.ragService = new RagService();
   }
 
   private getGraph(memoryMode: MemoryMode): ChatbotGraph {
@@ -61,7 +62,8 @@ export class VirusChatbot {
 
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
     const graph = this.getGraph(memoryMode);
-
+    const context = await this.ragService.retrieve(message, 3);
+    console.log('RAG Context:', context);
     try {
       const result = await graph.invoke(
         {
