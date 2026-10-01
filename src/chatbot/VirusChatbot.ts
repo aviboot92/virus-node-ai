@@ -20,6 +20,7 @@ export class VirusChatbot {
   // This is the RAG_SERVICE State.
   private ragService: RagService;
 
+  // Initialising modal and graph state instances using constructor
   constructor() {
     this.chatbotModel = new ChatOllama({
       model: 'llama3.2',
@@ -35,7 +36,7 @@ export class VirusChatbot {
     );
     this.ragService = new RagService();
   }
-
+  // Heart of the ARCHITECTURE. Refer README docs
   private getGraph(memoryMode: MemoryMode): ChatbotGraph {
     switch (memoryMode) {
       case 'ephemeral':
@@ -64,7 +65,7 @@ export class VirusChatbot {
         return this.sqliteGraph;
     }
   }
-
+  // It invokes State Graph for every new Instance it is created
   async chat(message: string, threadId: string, memoryMode: MemoryMode) {
     const graph = this.getGraph(memoryMode);
     const context = await this.ragService.retrieve(message, 3);
