@@ -13,5 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci
+      - run: npx prisma generate
       # - run: npm test
       - run: npm run build
