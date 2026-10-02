@@ -8,11 +8,20 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     container:
       image: node:24
+
     steps:
       - uses: actions/checkout@v4
+
       - run: npm ci
+
+      # Generate Prisma Client
       - run: npx prisma generate
-      # - run: npm test
+
+      # Run tests
+      - run: npm test
+
+      # Build TypeScript
       - run: npm run build
