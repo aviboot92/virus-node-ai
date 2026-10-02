@@ -20,6 +20,17 @@ jobs:
       # Generate Prisma Client
       - run: npx prisma generate
 
+      - name: Check Prisma generated files
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo "Generated directories:"
+          find . -type d -name "generated" -print
+
+          echo "Prisma client files:"
+          find . -type f -path "*generated/prisma/*" -print
+
       # Run tests
       - run: npm test
 
