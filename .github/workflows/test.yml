@@ -20,6 +20,11 @@ jobs:
       # Generate Prisma Client
       - run: npx prisma generate
 
+      - name: Debug Prisma
+        run: |
+          echo "Generated Prisma files:"
+          find src/generated -type f -print
+
       - name: Check Prisma generated files
         run: |
           echo "Current directory:"
