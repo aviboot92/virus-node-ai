@@ -8,8 +8,6 @@ import { createChatRouter } from './routes/chat.routes.js';
 const PORT = 5000;
 
 async function startServer() {
-  await postgresCheckpointer.setup();
-
   const app = express();
 
   app.use(cors());
