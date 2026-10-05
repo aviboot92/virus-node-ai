@@ -76,17 +76,27 @@ export class VirusChatbot {
             {
               role: 'human',
               content: `
-                  Answer the user's question using the provided knowledge.
+You are a conversational AI assistant with persistent conversation memory.
 
-                  Knowledge:
-                  ${context}
+Use the conversation history to answer normal conversational questions and remember information the user has previously provided.
 
-                  User question:
-                  ${message}
+Use the provided knowledge when the user's question requires information from the knowledge base.
 
-                  If the answer cannot be found in the knowledge, say:
-                  "I don't have enough information in my knowledge base."
-                  `,
+Knowledge:
+${context || '(No relevant knowledge was found.)'}
+
+User message:
+${message}
+
+Rules:
+1. If this is normal conversation, respond naturally.
+2. If the user provides personal information such as their name, acknowledge it and remember it through the conversation memory.
+3. If the user asks about something discussed earlier, use the conversation history.
+4. If the question requires knowledge from the knowledge base, use the provided Knowledge.
+5. Do not invent facts that are not present in the conversation history or Knowledge.
+6. If a factual knowledge question cannot be answered from the Knowledge, say:
+"I don't have enough information in my knowledge base."
+`,
             },
           ],
         },
