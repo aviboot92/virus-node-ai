@@ -40,7 +40,7 @@ async function startServer() {
 
   // Start listening for incoming requests on the configured port.
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`VirusAI Server running on http://localhost:${PORT}`);
   });
 }
 

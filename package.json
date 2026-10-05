@@ -4,10 +4,12 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev-server": "tsx watch src/server.ts",
+    "db-setup-and-run-dev-server": "npm run db:setup && tsx watch src/server.ts",
     "start": "node dist/server.js",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:setup": "tsx scripts/setup-postgres.ts"
   },
   "keywords": [],
   "author": "",
