@@ -1,0 +1,43 @@
+name: Test Project
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: node:24
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm ci
+
+      # Generate Prisma Client
+      - run: npx prisma generate
+
+      - name: Debug Prisma
+        run: |
+          echo "Generated Prisma files:"
+          find src/generated -type f -print
+
+      - name: Check Prisma generated files
+        run: |
+          echo "Current directory:"
+          pwd
+
+          echo "Generated directories:"
+          find . -type d -name "generated" -print
+
+          echo "Prisma client files:"
+          find . -type f -path "*generated/prisma/*" -print
+
+      # Run tests
+      - run: npm test
+
+      # Build TypeScript
+      - run: npm run build
