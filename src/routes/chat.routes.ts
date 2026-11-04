@@ -3,10 +3,16 @@ import { VirusChatbot } from '../chatbot/VirusChatbot.js';
 import type { MemoryMode } from '../types/chatbot.js';
 import type { ChatRequest, ChatResponse } from '../types/api.js';
 
+// ====================CHAT ROUTER==============
+
+// ===Chat router timeout=====
+const CHAT_TIMEOUT = 30_000;
+
 export function createChatRouter(chatbot: VirusChatbot) {
   const router = Router();
 
   router.post('/', async (req, res) => {
+    let timeoutId: NodeJS.Timeout | undefined;
     try {
       const {
         message,
@@ -29,6 +35,12 @@ export function createChatRouter(chatbot: VirusChatbot) {
           error: "memoryMode must be 'ephemeral', 'sqlite', or 'postgres'",
         });
       }
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error('CHAT_REQUEST_TIMEOUT'));
+        }, CHAT_TIMEOUT);
+      });
 
       const reply = await chatbot.chat(
         message,
