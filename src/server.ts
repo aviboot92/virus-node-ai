@@ -13,7 +13,7 @@ const PORT = 5000;
 // It prepares the memory layer and starts the Express server.
 async function startServer() {
   // Initialize the PostgreSQL memory setup before serving requests.
-  await postgresCheckpointer.setup();
+  // await postgresCheckpointer.setup();
 
   // Create the Express app that handles incoming HTTP requests.
   const app = express();
