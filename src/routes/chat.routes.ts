@@ -42,11 +42,10 @@ export function createChatRouter(chatbot: VirusChatbot) {
         }, CHAT_TIMEOUT);
       });
 
-      const reply = await chatbot.chat(
-        message,
-        threadId,
-        memoryMode as MemoryMode,
-      );
+      const reply = await Promise.race([
+        chatbot.chat(message, threadId, memoryMode as MemoryMode),
+        timeoutPromise,
+      ]);
 
       const response: ChatResponse = {
         reply,
@@ -57,7 +56,14 @@ export function createChatRouter(chatbot: VirusChatbot) {
       return res.json(response);
     } catch (error) {
       console.error('Chat error:', error);
-
+      // Timeout Error
+      if (error instanceof Error && error.message === 'CHAT_REQUEST_TIMEOUT') {
+        return res.status(504).json({
+          error: 'Gateway Timeout',
+          message: 'Chatbot took too long to respond. Please try again.',
+        });
+      }
+      // PostgreSQL Error
       if (
         error instanceof Error &&
         error.message.includes('PostgreSQL is unavailable')
@@ -69,10 +75,14 @@ export function createChatRouter(chatbot: VirusChatbot) {
           suggestedMemoryMode: 'sqlite',
         });
       }
-
+      // Network Error
       return res.status(500).json({
         error: 'Failed to process chat request',
       });
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   });
 
