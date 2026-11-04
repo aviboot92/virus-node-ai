@@ -2,11 +2,11 @@ import { Router } from 'express';
 import { VirusChatbot } from '../chatbot/VirusChatbot.js';
 import type { MemoryMode } from '../types/chatbot.js';
 import type { ChatRequest, ChatResponse } from '../types/api.js';
+import { CHAT_TIMEOUT } from './../utils/constants.js';
 
 // ====================CHAT ROUTER==============
 
 // ===Chat router timeout=====
-const CHAT_TIMEOUT = 30_000;
 
 export function createChatRouter(chatbot: VirusChatbot) {
   const router = Router();
