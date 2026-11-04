@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { VirusChatbot } from '../chatbot/VirusChatbot.js';
 import type { MemoryMode } from '../types/chatbot.js';
 import type { ChatRequest, ChatResponse } from '../types/api.js';
-import { CHAT_TIMEOUT } from './../utils/constants.js';
+import { CHAT_TIMEOUT, HTTP_STATUS } from './../utils/constants.js';
 
 // ====================CHAT ROUTER==============
 
@@ -58,7 +58,7 @@ export function createChatRouter(chatbot: VirusChatbot) {
       console.error('Chat error:', error);
       // Timeout Error
       if (error instanceof Error && error.message === 'CHAT_REQUEST_TIMEOUT') {
-        return res.status(504).json({
+        return res.status(HTTP_STATUS.TIMEOUT_ERROR).json({
           error: 'Gateway Timeout',
           message: 'Chatbot took too long to respond. Please try again.',
         });
@@ -68,7 +68,7 @@ export function createChatRouter(chatbot: VirusChatbot) {
         error instanceof Error &&
         error.message.includes('PostgreSQL is unavailable')
       ) {
-        return res.status(503).json({
+        return res.status(HTTP_STATUS.POSTGRESQL_ERROR).json({
           error: 'PostgreSQL is unavailable',
           message:
             'Please install and start PostgreSQL, or use SQLite instead.',
@@ -76,7 +76,7 @@ export function createChatRouter(chatbot: VirusChatbot) {
         });
       }
       // Network Error
-      return res.status(500).json({
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         error: 'Failed to process chat request',
       });
     } finally {
